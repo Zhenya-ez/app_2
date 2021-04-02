@@ -1,163 +1,128 @@
 import React, { useState, useEffect } from 'react'
 import './App.css';
 
-// потрібно створити логіку, яка задовільнить наступні вимоги
-// в нас має бути 6 кнопок, які дозволяють нам переключатись між 'табами' (posts, comments, albums, photos, todos, users)
-// дефолтно обрана таба- пости
-// по кліку на кнопку ми повинні підтягнути відповідний список і зрендерити його через .map
-// лише 1 список видимий одночасно
-// потрібно створити 6 компонент, які займатимуться рендерінгом списків (отримуватимуть пропсами список)- PostList, CommentsList...
+// дз  створти 2 інтупи і кнопку
+// перший відповідає за ендпоінт джсон плейсхолдера (перша частина енпоніту) другий- за айдішнік  якщо другого ендпоінту нема- тягнемо весь список  потрібно зробити валідацію на перший інпут- чи ендпоінт існуючий на другий- чи це число і чи воно в рамках 1-100  зробити версію на функціональній компоненті контрольовану і не контрольовану  якщо є час- на класовій компоненті теж таке саме написати
 
-// ендпоінти
-// /posts 
-// /comments 
-// /albums 
-// /photos 
-// /todos 
-// /users 
-// урл https://jsonplaceholder.typicode.com/
+const BASE_URL = 'https://jsonplaceholder.typicode.com'   //забрали /
 
-const Tabs = ({ tabs, selectedTab }) => {
-	return (
-		<div style={{
-			display: 'flex',
-		}}>
-		{tabs.map(tab => ( 
-		<button 
-		key={tab.title}
-		style={{ 
-			flex: 1,
-			height: '50px',
-			background: selectedTab === tab.title ? 'green' : 'white'
-		}} 
-		onClick={tab.clickHandler}
-		>
-		{tab.title}
-		</button>
-		))}
-		</div>
-		)
-	}
+const AVALIBLE_RESOURCES = [
+	'posts',
+	'comments',
+	'photos',
+	'todos',
+	'users',
+]
 
-	const PostList = ({ posts }) => {
-		return (
-		<>
-		{posts.map(post => (
-			<div key={post.id}>
-			<h3>{post.title}</h3>
-			<p>{post.body}</p>
-			</div>
-		))}
-		</>
-		)
-	}
-
-	const CommentList = ({ comments }) => {
-		return (
-		<>
-		{comments.map(comment => (
-			<div key={comment.id}>
-			<h3>{comment.name}</h3>
-			<p>{comment.body}</p>
-			</div>
-		))}
-		</>
-		)
-	}
-
-	const AlbumList = ({ albums }) => {
-		return (
-		<>
-		{albums.map(album => (
-			<div key={album.id}>
-			<h3>{album.title}</h3>
-			</div>
-		))}
-		</>
-		)
-	}
-
-	const PhotoList = ({ photos }) => {
-		return (
-		<>
-		{photos.map(photo => (
-			<div key={photo.id}>
-			<h3>{photo.title}</h3>
-			<p>{photo.thumbnailUrl}</p>
-			</div>
-		))}
-		</>
-		)
-	}
-
-	const TodoList = ({ todos }) => {
-		return (
-		<>
-		{todos.map(todo => (
-			<div key={todo.id}>
-			<h3>{todo.title}</h3>
-			<p>{todo.completed.toString()}</p>
-			</div>
-		))}
-		</>
-		)
-	}
-
-	const UserList = ({ users }) => {
-		return (
-		<>
-		{users.map(user => (
-			<div key={user.id}>
-			<h3>{user.name} -- {user.username} -- {user.email}</h3>
-			</div>
-		))}
-		</>
-		)
-	}
-	
-	const urlBuilder = (resource) => `https://jsonplaceholder.typicode.com/${resource}`
-	
 	function App() {
-		const onTabChangeHandler = (tab) => {
-			if (tab !== selectedTab) {
-				setSelectedTab(tab);
-				setList([])
+		// const [endpoint, setEndpoint] = useState('');
+		// const [id, setId] = useState('');
+
+		// об'єднуємо два значення вище в одне
+		const [endpointFields, setEndpointFields] = useState ({
+			endpoint: '',
+			id: ''
+		})
+
+		const {endpoint, id} = endpointFields;
+
+		const [errorMessage, setErrorMessage] = useState('')
+		
+		const [items, setItems] = useState([]);
+		const [singleItem, setSingleItem] = useState(null);
+
+		const validateEndpoint = () => {
+
+			// перевірка чи перший інпут є пустим
+			// перевірка першого інпута чи в ньому валідне значення
+			if(!endpoint) {
+				setErrorMessage('first input is required!!!')
+				return false
+
+			} else if(!AVALIBLE_RESOURCES.includes(endpoint.trim().toLowerCase())) { 
+				setErrorMessage('value is not valid, try to use smth from this list: posts, comments, photos, todos, users')
+				return false;
+			}
+
+			return true;
+		}
+
+		const validateId = () => {
+			// перевірка чи значення є числовим
+			// перевірка чи значення в діапазоні 1-100
+			const idToNum = Number(id);
+
+			if(!idToNum && id !== '' && idToNum !==0) {
+				setErrorMessage('value for second input is not valid, pls use numeric value')
+				return false
+			} else if((idToNum < 1 || idToNum > 100) && id !== '') {
+				setErrorMessage('value for second input is out of range, pls use 1-100')
+				return false
+			}
+			
+			return true;
+		}
+		
+		const resetError = () => setErrorMessage('');
+
+		const onSubmit = () => {
+			const isEndpointValid = validateEndpoint();
+			const isIdOk = validateId();
+
+			if(isIdOk && isEndpointValid) {
+				fetchData()
+				resetError()
 			}
 		}
 
-		const tabs = [
-			{ title: 'posts', clickHandler: () => onTabChangeHandler ('posts')},
-			{ title: 'comments', clickHandler: () => onTabChangeHandler ('comments')},
-			{ title: 'albums', clickHandler: () => onTabChangeHandler ('albums')},
-			{ title: 'photos', clickHandler: () => onTabChangeHandler ('photos')},
-			{ title: 'todos', clickHandler: () => onTabChangeHandler ('todos')},
-			{ title: 'users', clickHandler: () => onTabChangeHandler ('users')},
-		]
+		const fetchData = async() => {
+			//trim() щоб забрати пробіли і нормально виконувалась валідація коли пишуть в інпутах з пробілами
+			//toLowerCase() щоб при вводі з капсом не ламалась валідація і все конвертувалось в ловер кейс
+			const response = await fetch(`${BASE_URL}/${endpoint.trim().toLowerCase()}/${id.trim()}`);   
+			const json = await response.json();
 
-		const [selectedTab, setSelectedTab] = useState(tabs[0].title)
-		const [list, setList] = useState([]);
+			//Перевірка якщо ведеений постс, але не введений його айді - відображаються всі пости, коли введений його айді - відображається тільки 1 пост
+			if(id) {
+				setSingleItem(json)
+				setItems([])
 
-		const fetchData = async () => {
-			const response = await fetch(urlBuilder(selectedTab));
-			const data = await response.json();
-			console.log(selectedTab, data);
-			setList(data)
+				return
+			}
+			setSingleItem(null)
+			setItems(json)
 		}
-		
-		useEffect(() => {
-			fetchData();
-		}, [selectedTab])
+
+		const onFieldUpdate = ({target: {name, value}}) => setEndpointFields({...endpointFields, [name]: value})
 
 			return (
 				<div className="App">
-					<Tabs tabs={tabs} selectedTab={selectedTab} />
+					<br/>
+					<br/>
+					<input value={endpoint} onChange={onFieldUpdate} name="endpoint" type="text" placeholder="E.g. posts, comments, todos etc" />
+					<br/>
+					<br/>
+					<input value={id} onChange={onFieldUpdate} name="id" type="text"  placeholder="resourse id, e.g. 1, 2, 3" />
+					<br/>
+					<br/>
+					<button onClick={onSubmit}>fetch data</button>
+				
+					<hr/>
 
-					{selectedTab === 'posts' && <PostList posts={list} />}
-					{selectedTab === 'comments' && <CommentList comments={list} />}
-					{selectedTab === 'albums' && <AlbumList albums={list} />}
-					{selectedTab === 'photos' && <PhotoList photos={list} />}
-					{selectedTab === 'todos' && <TodoList todos={list} />}
-					{selectedTab === 'users' && <UserList users={list} />}
+					<h1 style={{ color: 'red'}}>{errorMessage}</h1>
+
+					<div style={{ width: '400px', textAlign: 'left', padding: '20px'}}>
+						<pre style={{ whiteSpace: 'pre-wrap' }}>
+						{singleItem && JSON.stringify(singleItem, null, 2)}
+						</pre>
+					</div>
+				
+				<hr/>
+				<div>
+					{items.map(el => (<div>{el.id} - {el.title ?? 'N/A'}</div>))}
+				</div>
+				
+				
+				
 				</div>
 			);
 			}
