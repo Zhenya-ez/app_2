@@ -1,130 +1,184 @@
-import React, { useState, useEffect } from 'react'
-import './App.css';
+import React, { createContext, useContext, useState } from "react";
+import { Switch, BrowserRouter as Router, Route, Link } from "react-router-dom";
 
-// дз  створти 2 інтупи і кнопку
-// перший відповідає за ендпоінт джсон плейсхолдера (перша частина енпоніту) другий- за айдішнік  якщо другого ендпоінту нема- тягнемо весь список  потрібно зробити валідацію на перший інпут- чи ендпоінт існуючий на другий- чи це число і чи воно в рамках 1-100  зробити версію на функціональній компоненті контрольовану і не контрольовану  якщо є час- на класовій компоненті теж таке саме написати
+const TodoContext = createContext();
 
-const BASE_URL = 'https://jsonplaceholder.typicode.com'   //забрали /
+const TodoContextProvider = ({children}) => {
+	const [todos, setTodos] = useState([]);
+	const [doneTodos, setDoneTodos] = useState([]);
 
-const AVALIBLE_RESOURCES = [
-	'posts',
-	'comments',
-	'photos',
-	'todos',
-	'users',
-]
-
-	function App() {
-		// const [endpoint, setEndpoint] = useState('');
-		// const [id, setId] = useState('');
-
-		// об'єднуємо два значення вище в одне
-		const [endpointFields, setEndpointFields] = useState ({
-			endpoint: '',
-			id: ''
-		})
-
-		const {endpoint, id} = endpointFields;
-
-		const [errorMessage, setErrorMessage] = useState('')
-		
-		const [items, setItems] = useState([]);
-		const [singleItem, setSingleItem] = useState(null);
-
-		const validateEndpoint = () => {
-
-			// перевірка чи перший інпут є пустим
-			// перевірка першого інпута чи в ньому валідне значення
-			if(!endpoint) {
-				setErrorMessage('first input is required!!!')
-				return false
-
-			} else if(!AVALIBLE_RESOURCES.includes(endpoint.trim().toLowerCase())) { 
-				setErrorMessage('value is not valid, try to use smth from this list: posts, comments, photos, todos, users')
-				return false;
-			}
-
-			return true;
+	const onTodoCreate = (newTodo) => {
+		if(!newTodo || !newTodo.title || !newTodo.description) {
+			console.error('wrong arg for new todo, should be smth like {title "...", description: "..."}')
+			return
 		}
 
-		const validateId = () => {
-			// перевірка чи значення є числовим
-			// перевірка чи значення в діапазоні 1-100
-			const idToNum = Number(id);
+		setTodos([newTodo, ...todos])
+	}
 
-			if(!idToNum && id !== '' && idToNum !==0) {
-				setErrorMessage('value for second input is not valid, pls use numeric value')
-				return false
-			} else if((idToNum < 1 || idToNum > 100) && id !== '') {
-				setErrorMessage('value for second input is out of range, pls use 1-100')
-				return false
-			}
-			
-			return true;
-		}
-		
-		const resetError = () => setErrorMessage('');
-
-		const onSubmit = () => {
-			const isEndpointValid = validateEndpoint();
-			const isIdOk = validateId();
-
-			if(isIdOk && isEndpointValid) {
-				fetchData()
-				resetError()
-			}
-		}
-
-		const fetchData = async() => {
-			//trim() щоб забрати пробіли і нормально виконувалась валідація коли пишуть в інпутах з пробілами
-			//toLowerCase() щоб при вводі з капсом не ламалась валідація і все конвертувалось в ловер кейс
-			const response = await fetch(`${BASE_URL}/${endpoint.trim().toLowerCase()}/${id.trim()}`);   
-			const json = await response.json();
-
-			//Перевірка якщо ведеений постс, але не введений його айді - відображаються всі пости, коли введений його айді - відображається тільки 1 пост
-			if(id) {
-				setSingleItem(json)
-				setItems([])
-
+		const onTodoRemove = (todoId) => {
+			if (!todoId) {
+				console.error('todo id looks wrong', todoId)
 				return
 			}
-			setSingleItem(null)
-			setItems(json)
+
+			setTodos(todos.filter(el => el.id !== todoId))
+			setDoneTodos(doneTodos.filter(id => id !== todoId))
 		}
 
-		const onFieldUpdate = ({target: {name, value}}) => setEndpointFields({...endpointFields, [name]: value})
+			const isDoneToggle = (todoId) => {
+				const isTodoMarkedAsDone = doneTodos.includes(todoId);
 
-			return (
-				<div className="App">
-					<br/>
-					<br/>
-					<input value={endpoint} onChange={onFieldUpdate} name="endpoint" type="text" placeholder="E.g. posts, comments, todos etc" />
-					<br/>
-					<br/>
-					<input value={id} onChange={onFieldUpdate} name="id" type="text"  placeholder="resourse id, e.g. 1, 2, 3" />
-					<br/>
-					<br/>
-					<button onClick={onSubmit}>fetch data</button>
-				
-					<hr/>
+				if(isTodoMarkedAsDone) {
+					return setDoneTodos(doneTodos.filter(id => id !== todoId))
+				}
 
-					<h1 style={{ color: 'red'}}>{errorMessage}</h1>
-
-					<div style={{ width: '400px', textAlign: 'left', padding: '20px'}}>
-						<pre style={{ whiteSpace: 'pre-wrap' }}>
-						{singleItem && JSON.stringify(singleItem, null, 2)}
-						</pre>
-					</div>
-				
-				<hr/>
-				<div>
-					{items.map(el => (<div>{el.id} - {el.title ?? 'N/A'}</div>))}
-				</div>
-				
-				
-				
-				</div>
-			);
+				setDoneTodos([...doneTodos, todoId])
 			}
 
-export default App;
+	return (
+		<TodoContext.Provider 
+		value={{
+			todos,
+			onTodoCreate,
+			onTodoRemove,
+			isDoneToggle,
+			doneTodos
+			}}>
+		{children}
+		</TodoContext.Provider>
+	)
+}
+
+const TodoItem = ({ todo, onTodoRemove, isDoneToggle, isDone }) => {
+	const onTodoDelete = () => {
+		const answer = window.confirm('are you sure want to delete this todo');
+
+		if(answer) {
+			onTodoRemove(todo.id)
+		}
+	}
+
+	const onMarkIsDoneToggle = () => isDoneToggle(todo.id)
+
+	return (
+		<div>
+			<div style={{
+				textDecoration: isDone ? 'line-through' : ''
+			}}>
+			<h4>{todo.title}</h4> 
+			<p>{todo.description}</p> 
+			</div>
+
+			<button onClick={onTodoDelete}>delete todo</button>
+			<button onClick={onMarkIsDoneToggle}>mark as {isDone ? 'active' : 'done'}</button>
+		</div>
+	)
+}
+
+const TodosList = () => {
+	const {
+		todos,
+		onTodoRemove,
+		isDoneToggle,
+		doneTodos
+	} = useContext(TodoContext)
+
+	return (
+		<div>
+			{todos.map(el => (
+			<TodoItem 
+			isDone={doneTodos.includes(el.id)}
+			isDoneToggle={isDoneToggle}
+			onTodoRemove={onTodoRemove}
+			key={el.title + el.description} 
+			todo={el} 
+			/>
+			))}
+		</div>
+	)
+}
+
+const AddTodo = () => {
+	const [todoValues, setTodoValues] = useState({
+		title: '',
+		description: '',
+		id: null,
+	})
+
+	const {
+		onTodoCreate
+	} = useContext(TodoContext)
+
+	const onTodoChange = ({target: {name, value}}) => setTodoValues({...todoValues, [name]: value})
+	
+	const onCreate = () => {
+	onTodoCreate({ ...todoValues, id: Math.random() })
+	
+	setTodoValues({
+		title: '',
+		description: '',
+		id: null
+})
+}
+
+	return (
+		<div>
+			<input value={todoValues.title} onChange={onTodoChange} type="text" name="title" placeholder="todo title"/>
+			<br />
+			<br />
+			<input value={todoValues.description} onChange={onTodoChange} type="text" name="description" placeholder="todo description"/>
+			<br />
+			<br />
+			<button onClick={onCreate}>add todo</button>
+		</div>
+	)
+}
+
+const Header = () => {
+	const {
+		todos,
+		doneTodos
+	} = useContext(TodoContext);
+
+	return (
+		<header>
+			<Link to="/">List </Link>
+			<Link to="/create-todo">add new todo </Link>
+			{/* цей дів це заглушка яка розсуне 2 блоки щоб кожний не огортати */}
+			<div style={{flex: 1}} />
+
+			<h3 style={{ marginRight: 12}}>total todos: {todos.length}</h3>
+			<h3 style={{ marginRight: 12}}>active todos: {todos.length - doneTodos.length}</h3>
+			<h3 style={{ marginRight: 12}}>done todos: {doneTodos.length}</h3>
+		</header>
+	)
+}
+
+export default function App() {
+	
+	return (
+		// 1 список тудушок, де ми можемо маркувати їх як виконані або видаляти
+		// 2 формочка для створення нової тудушки
+		<TodoContextProvider>
+		<main>
+		<Router>
+			<Header /> 
+
+			<div style={{padding: 20}}>
+			<Switch>
+				<Route path="/" exact>
+				<TodosList />
+				</Route>
+
+				<Route path="/create-todo">
+					<AddTodo />
+				</Route>
+			</Switch>
+			</div>
+
+		</Router>
+		</main>
+		</TodoContextProvider>
+	);
+}
